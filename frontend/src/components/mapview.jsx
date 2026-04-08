@@ -1,0 +1,1 @@
+api.get("/api/map/command")
