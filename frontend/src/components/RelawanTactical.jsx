@@ -150,46 +150,67 @@ const RelawanTactical = ({ user }) => {
 
         {/* --- TACTICAL MAP --- */}
         <section className="bg-white rounded-[40px] shadow-2xl border-[10px] border-white h-[350px] relative overflow-hidden">
-          <MapContainer center={[location.lat, location.lng]} zoom={12} className="h-full w-full" zoomControl={false}>
-            <MapRefresher />
-            <LayersControl position="topright">
-              <LayersControl.BaseLayer checked name="Tactical"><TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" /></LayersControl.BaseLayer>
-              <LayersControl.Overlay checked name="Radar Hujan">{radarTime && <TileLayer url={`https://tilecache.rainviewer.com/v2/radar/${radarTime}/256/{z}/{x}/{y}/2/1_1.png`} opacity={0.4} />}</LayersControl.Overlay>
-            </LayersControl>
-{location && location.lat && location.lng && (
-            <CircleMarker center={[location.lat, location.lng]} radius={8} pathOptions={{fillColor: '#006432', color: 'white', weight: 3, fillOpacity: 1}} />
-)}
-            {data.map(inc => {
-  // VALIDASI: Cek apakah koordinat tersedia
-  const lat = parseFloat(inc.latitude);
-  const lng = parseFloat(inc.longitude);
-
-  if (isNaN(lat) || isNaN(lng)) return null; // Jangan render jika koordinat rusak
-
-  return (
-    <CircleMarker 
-      key={inc.id} 
-      center={[lat, lng]} // Gunakan variabel yang sudah di-parse
-      radius={12} 
-      pathOptions={{ 
-        fillColor: inc.priority_level === 'CRITICAL' ? '#ef4444' : '#3b82f6', 
-        color: 'white', 
-        weight: 4, 
-        fillOpacity: 0.85 
-      }}
+         {location && typeof location.lat === 'number' && typeof location.lng === 'number' ? (
+    <MapContainer 
+      center={[location.lat, location.lng]} 
+      zoom={12} 
+      className="h-full w-full" 
+      zoomControl={false}
     >
-      <Popup className="premium-popup">
-         <div className="p-1 font-sans">
-            <h4 className="font-black text-nu-green uppercase text-[10px] mb-2">{inc.title}</h4>
-            <button onClick={() => window.open(`https://www.google.com/maps?q=${lat},${lng}`)} className="w-full bg-slate-100 py-2 rounded-lg text-[8px] font-black uppercase">Buka Navigasi</button>
-         </div>
-      </Popup>
-    </CircleMarker>
-  );
-})}
-            
-          </MapContainer>
-        </section>
+      <MapRefresher />
+      <LayersControl position="topright">
+        <LayersControl.BaseLayer checked name="Tactical">
+          <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" />
+        </LayersControl.BaseLayer>
+        <LayersControl.Overlay checked name="Radar Hujan">
+          {radarTime && <TileLayer url={`https://tilecache.rainviewer.com/v2/radar/${radarTime}/256/{z}/{x}/{y}/2/1_1.png`} opacity={0.4} />}
+        </LayersControl.Overlay>
+      </LayersControl>
+
+      {/* 2. Marker Posisi Relawan (GPS) */}
+      <CircleMarker 
+        center={[location.lat, location.lng]} 
+        radius={8} 
+        pathOptions={{fillColor: '#006432', color: 'white', weight: 3, fillOpacity: 1}} 
+      />
+
+      {/* 3. Marker Kejadian (Data Map) */}
+      {data && data.map(inc => {
+        const lat = parseFloat(inc.latitude);
+        const lng = parseFloat(inc.longitude);
+
+        // VALIDASI KETAT: Jika koordinat bukan angka, jangan render marker ini
+        if (isNaN(lat) || isNaN(lng)) return null;
+
+        return (
+          <CircleMarker 
+            key={inc.id} 
+            center={[lat, lng]} 
+            radius={12} 
+            pathOptions={{ 
+              fillColor: inc.priority_level === 'CRITICAL' ? '#ef4444' : '#3b82f6', 
+              color: 'white', 
+              weight: 4, 
+              fillOpacity: 0.85 
+            }}
+          >
+            <Popup className="premium-popup">
+               <div className="p-1 font-sans">
+                  <h4 className="font-black text-nu-green uppercase text-[10px] mb-2">{inc.title}</h4>
+                  <button onClick={() => window.open(`https://www.google.com/maps?q=${lat},${lng}`)} className="w-full bg-slate-100 py-2 rounded-lg text-[8px] font-black uppercase">Buka Navigasi</button>
+               </div>
+            </Popup>
+          </CircleMarker>
+        );
+      })}
+    </MapContainer>
+  ) : (
+    // Tampilan Loading jika GPS belum siap
+    <div className="h-full w-full flex items-center justify-center bg-slate-50 text-[10px] font-black uppercase text-slate-400">
+       <i className="fas fa-spinner fa-spin mr-2"></i> Mengunci Sinyal GPS...
+    </div>
+  )}
+</section>
 
         {/* --- MISSION MANAGER & FEED --- */}
         <div className="grid grid-cols-1 gap-6">
