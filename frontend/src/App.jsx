@@ -291,24 +291,21 @@ function App() {
       >
         <i className="fas fa-user-shield text-xl"></i>
       </button>
-
-      {/* 3. Logika Munculkan Kotak Login */}
-      {showLogin && ( // <-- Jika showLogin bernilai TRUE, maka munculkan komponen di bawah ini
-        <Login 
-          onLoginSuccess={(user) => {
-            setUserData(user);
-            setIsLoggedIn(true);
-            setShowLogin(false); // Tutup login setelah berhasil
-            fetchData();
-          }} 
-          onGoToRegister={() => window.location.pathname = '/gabung'} 
-          onClose={() => setShowLogin(false)} // Fungsi untuk tombol silang (tutup)
-        />
-      )}
-    </div>
-  );
-}
-
+           {showLogin && (
+          <Login 
+            onLoginSuccess={(user) => {
+              setUserData(user);
+              setIsLoggedIn(true);
+              setShowLogin(false);
+              fetchData();
+            }} 
+            onGoToRegister={() => window.location.pathname = '/gabung'} 
+            onClose={() => setShowLogin(false)}
+          />
+        )}
+      </div>
+    );
+  }
   if (userData?.role === 'RELAWAN' || path === '/v') {
     return <RelawanTactical user={userData} coords={currentCoords} onOfflineSubmit={handleDataSubmit} onLogout={handleLogout} />;
   }
