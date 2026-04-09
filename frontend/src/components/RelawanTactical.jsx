@@ -54,7 +54,7 @@ const RelawanTactical = ({ user, coords, onOfflineSubmit, onLogout }) => {
   const fetchOps = async () => {
     try {
       const [resInc, resRadar] = await Promise.all([
-        api.get('/api/incidents'),
+        api.get('incidents'),
         axios.get('https://api.rainviewer.com/public/weather-maps.json'),
       ]);
       
@@ -88,7 +88,7 @@ const RelawanTactical = ({ user, coords, onOfflineSubmit, onLogout }) => {
   const handleApplyDuty = async () => {
     if (!availability.from || !availability.until) return alert("Pilih rentang waktu kesediaan Anda!");
     try {
-      await api.post('/api/volunteers/apply', {
+      await api.post('volunteers/apply', {
         volunteer_id: user.id,
         incident_id: targetIncident.id,
         available_from: availability.from,

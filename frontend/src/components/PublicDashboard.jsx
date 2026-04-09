@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import L from 'leaflet';
+import api from '../services/api';
 import axios from 'axios';
 import 'leaflet/dist/leaflet.css';
 import { jsPDF } from 'jspdf';
@@ -188,9 +189,9 @@ const PublicDashboard = ({ incidents, onOpenLogin }) => {
     const fetchAllData = async () => {
       try {
         const [resInc, resInv, resNews] = await Promise.all([
-          axios.get('/api/incidents/public'),
-          axios.get('/api/inventory'),
-          axios.get('/api/news').catch(() => ({ data: [] }))
+          api.get('incidents/public'),
+          api.get('inventory'),
+          api.get('news').catch(() => ({ data: [] }))
         ]);
         setData(resInc.data);
         setInventory(resInv.data);

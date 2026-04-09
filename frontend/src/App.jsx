@@ -73,8 +73,8 @@ function App() {
   const fetchData = useCallback(async () => {
     try {
       const [resInc, resInv] = await Promise.all([
-        api.get('/api/incidents'), 
-        api.get('/api/inventory')
+        api.get('incidents'), 
+        api.get('inventory')
       ]);
       setIncidents(resInc.data);
       setInventory(resInv.data);
@@ -95,7 +95,7 @@ function App() {
     const remainingQueue = [];
     for (const item of queue) {
       try {
-        await api.post(item.endpoint, item.data);
+        await api.post(item.endpoint.replace('/api/', ''), item.data);
       } catch (e) {
         remainingQueue.push(item);
       }
