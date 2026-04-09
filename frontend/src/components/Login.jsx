@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import api from '../services/api';
-import { Preferences } from '@capacitor/preferences'; // Tambahan untuk stabilitas APK
+import { Preferences } from '@capacitor/preferences';
 
-const Login = ({ onLoginSuccess, onGoToRegister }) => {
+// Tambahkan onClose di dalam props
+const Login = ({ onLoginSuccess, onGoToRegister, onClose }) => {
   const [form, setForm] = useState({ username: '', password: '' });
   const [loading, setLoading] = useState(false);
 
@@ -10,16 +11,13 @@ const Login = ({ onLoginSuccess, onGoToRegister }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      // Menembak ke API (URL sudah otomatis dari api.js)
       const res = await api.post('/api/auth/login', form);
       
       if (res.data.success) {
-        // SIMPAN KE LOCALSTORAGE (Untuk Web)
         localStorage.setItem('userData', JSON.stringify(res.data.user));
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('userToken', res.data.token);
 
-        // SIMPAN KE PREFERENCES (Untuk APK agar tidak gampang Logout)
         await Preferences.set({ key: 'userData', value: JSON.stringify(res.data.user) });
         await Preferences.set({ key: 'isLoggedIn', value: 'true' });
         await Preferences.set({ key: 'userToken', value: res.data.token });
@@ -27,7 +25,6 @@ const Login = ({ onLoginSuccess, onGoToRegister }) => {
         onLoginSuccess(res.data.user);
       }
     } catch (err) {
-      // Menampilkan error asli dari backend
       alert(err.response?.data?.error || "Gagal Login. Cek Koneksi Internet.");
     } finally {
       setLoading(false);
@@ -35,8 +32,18 @@ const Login = ({ onLoginSuccess, onGoToRegister }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-6 font-sans">
+    /* UBAH BAGIAN INI: Tambahkan fixed, inset-0, z-[9999], dan bg-black/60 */
+    <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 font-sans">
       <div className="bg-white w-full max-w-md p-12 rounded-[50px] shadow-2xl border-t-[10px] border-[#006432] text-center relative overflow-hidden">
+        
+        {/* TAMBAHKAN TOMBOL CLOSE (Silang) */}
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-6 text-slate-300 hover:text-red-500 z-10"
+        >
+          <i className="fas fa-times-circle text-xl"></i>
+        </button>
+
         <div className="absolute top-0 right-0 p-8 opacity-5"><i className="fas fa-shield-alt text-8xl"></i></div>
         
         <img src="https://upload.wikimedia.org/wikipedia/id/thumb/a/a2/Logo_Nahdlatul_Ulama.svg/1200px-Logo_Nahdlatul_Ulama.svg.png" className="h-20 mx-auto mb-6" alt="NU" />

@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, LayersControl, useMap } from 'react-leaflet';
-import { ResponsiveContainer, Cell, PieChart, Pie, Tooltip, Legend } from 'recharts';
+import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import L from 'leaflet';
-import 'leaflet.heat'; 
 import axios from 'axios';
 import 'leaflet/dist/leaflet.css';
 import { jsPDF } from 'jspdf';
@@ -31,7 +29,7 @@ const GapGauge = ({ label, target, current, color }) => {
     <div className="space-y-1">
       <div className="flex justify-between text-[10px] font-black uppercase tracking-tighter">
         <span className="text-slate-500 truncate pr-4">{label}</span>
-        <span className={percent >= 100 ? 'text-nu-green' : 'text-orange-600'}>{current}/{target} ({percent}%)</span>
+        <span className={percent >= 100 ? 'text-[#006432]' : 'text-orange-600'}>{current}/{target} ({percent}%)</span>
       </div>
       <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-50 shadow-inner">
         <div className={`h-full ${color} transition-all duration-1000 shadow-md`} style={{ width: `${percent}%` }} />
@@ -40,16 +38,15 @@ const GapGauge = ({ label, target, current, color }) => {
   );
 };
 
-// --- SUB-KOMPONEN 2: LIVE WEATHER BENTO (FIX 401 ERROR) ---
+// --- SUB-KOMPONEN 2: LIVE WEATHER BENTO ---
 const WeatherForecast = () => {
-  const [activeSlide, setActiveSlide] = useState(0); // 0: Lokal, 1: 24 Jam, 2: 7 Hari
+  const [activeSlide, setActiveSlide] = useState(0); 
   const [weather, setWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchWeatherData = async (lat, lon) => {
     try {
-      // 1. Ambil Cuaca Sekarang & Forecast (5 Hari / 3 Jam)
       const [currentRes, forecastRes] = await Promise.all([
         axios.get(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWM_KEY}&units=metric&lang=id`),
         axios.get(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OWM_KEY}&units=metric&lang=id`)
@@ -64,11 +61,9 @@ const WeatherForecast = () => {
         wind: currentRes.data.wind.speed + ' m/s'
       });
 
-      // Olah Data Forecast
       setForecast(forecastRes.data.list);
       setLoading(false);
     } catch (e) {
-      // FALLBACK DATA JIKA API ERROR
       setWeather({ city: "Jawa Tengah", temp: '29°C', desc: 'Berawan', icon: 'cloud-sun', humidity: '75%', wind: '2.1 m/s' });
       setForecast(Array(8).fill({ dt_txt: "2024-05-12 12:00:00", main: { temp: 28 }, weather: [{ main: 'Clouds', description: 'berawan' }] }));
       setLoading(false);
@@ -93,7 +88,6 @@ const WeatherForecast = () => {
 
   return (
     <div className="space-y-4">
-      {/* TAB NAVIGATION (NU STYLE) */}
       <div className="flex bg-slate-100 p-1 rounded-2xl w-fit mx-auto md:mx-0">
         {['Kondisi Lokal', 'Prediksi 24 Jam', 'Prediksi 7 Hari'].map((label, idx) => (
           <button 
@@ -106,9 +100,7 @@ const WeatherForecast = () => {
         ))}
       </div>
 
-      {/* SLIDE CONTENT */}
       <div className="min-h-[140px]">
-        {/* SLIDE 0: KONDISI LOKAL */}
         {activeSlide === 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-500">
             <div className="bg-gradient-to-br from-white to-blue-50/40 p-5 rounded-[30px] border border-blue-100 shadow-sm flex items-center justify-between">
@@ -142,7 +134,6 @@ const WeatherForecast = () => {
           </div>
         )}
 
-        {/* SLIDE 1: PREDIKSI 24 JAM (Hourly) */}
         {activeSlide === 1 && (
           <div className="bg-white p-5 rounded-[30px] border border-slate-100 shadow-sm overflow-hidden animate-in fade-in duration-500">
              <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
@@ -158,16 +149,14 @@ const WeatherForecast = () => {
           </div>
         )}
 
-        {/* SLIDE 2: PREDIKSI 7 HARI (Daily) */}
         {activeSlide === 2 && (
           <div className="bg-white p-5 rounded-[30px] border border-slate-100 shadow-sm animate-in fade-in duration-500">
              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                {/* Filter data jam 12:00 saja sebagai representasi harian */}
                 {forecast.filter(f => f.dt_txt.includes("12:00:00")).map((item, i) => (
                   <div key={i} className="flex justify-between items-center p-3 bg-slate-50 rounded-2xl border border-slate-100">
                     <div>
                       <p className="text-[8px] font-black text-slate-400 uppercase">
-                        {new Date(item.dt).toLocaleDateString('id-ID', { weekday: 'short' })}
+                        {new Date(item.dt * 1000).toLocaleDateString('id-ID', { weekday: 'short' })}
                       </p>
                       <p className="text-sm font-black text-[#006432]">{Math.round(item.main.temp)}°C</p>
                     </div>
@@ -184,28 +173,23 @@ const WeatherForecast = () => {
 };
 
 // --- KOMPONEN UTAMA DASHBOARD ---
-const PublicDashboard = () => {
-  const [data, setData] = useState([]);
+const PublicDashboard = ({ incidents, onOpenLogin }) => {
+  const [data, setData] = useState(incidents || []);
   const [news, setNews] = useState([]);
   const [inventory, setInventory] = useState([]);
-  const [radarTime, setRadarTime] = useState(null);
   const [activeView, setActiveView] = useState('home');
 
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        const [resInc, resInv, resRadar, resNews] = await Promise.all([
+        const [resInc, resInv, resNews] = await Promise.all([
           axios.get('https://nupeduli-pusdatin-nu-backend.hf.space/api/incidents/public'),
           axios.get('https://nupeduli-pusdatin-nu-backend.hf.space/api/inventory'),
-          axios.get('https://api.rainviewer.com/public/weather-maps.json'),
           axios.get('https://nupeduli-pusdatin-nu-backend.hf.space/api/news').catch(() => ({ data: [] }))
         ]);
         setData(resInc.data);
         setInventory(resInv.data);
         setNews(resNews.data);
-        if (resRadar.data.radar.past.length > 0) {
-          setRadarTime(resRadar.data.radar.past[resRadar.data.radar.past.length - 1].time);
-        }
       } catch (e) { console.error("Strategic Hub Error"); }
     };
     fetchAllData();
@@ -244,10 +228,14 @@ const PublicDashboard = () => {
       {/* HEADER */}
       <header className="h-14 bg-white border-b shrink-0 flex items-center px-6 justify-between z-[2000] shadow-sm">
         <div className="flex items-center gap-3">
-          <img src="https://pwnu-jateng.org/uploads/infoumum/20250825111304-2025-08-25infoumum111252.png" className="h-8" />
-          <h1 className="text-sm font-black text-nu-green uppercase tracking-tighter italic">NU Peduli Monitoring</h1>
+          <img src="https://pwnu-jateng.org/uploads/infoumum/20250825111304-2025-08-25infoumum111252.png" className="h-8" alt="logo" />
+          <h1 className="text-sm font-black text-[#006432] uppercase tracking-tighter italic">NU Peduli Monitoring</h1>
         </div>
-        <i className="far fa-user-circle text-xl text-slate-300 cursor-pointer hover:text-nu-green transition-all" onClick={() => window.location.href='/login'}></i>
+        {/* Ikon Orang - Klik untuk Login */}
+        <i 
+          className="far fa-user-circle text-xl text-slate-300 cursor-pointer hover:text-[#006432] transition-all" 
+          onClick={onOpenLogin}
+        ></i>
       </header>
 
       {/* CONTENT */}
@@ -259,7 +247,7 @@ const PublicDashboard = () => {
                <KPIBox label="Misi" value={data.length} color="text-red-600" />
                <KPIBox label="Jiwa" value={stats.terdampak} color="text-blue-600" />
                <KPIBox label="Relawan" value={inventory.filter(i=>i.type==='Relawan').length || 142} color="text-green-600" />
-               <KPIBox label="Aset" value="24" color="text-nu-gold" />
+               <KPIBox label="Aset" value="24" color="text-[#c5a059]" />
             </div>
 
             <WeatherForecast />
@@ -268,32 +256,42 @@ const PublicDashboard = () => {
                <div className="lg:col-span-8 h-[400px] md:h-[600px] bg-white rounded-[40px] shadow-2xl border-8 border-white relative overflow-hidden">
                   <MapContainer center={[-7.15, 110.14]} zoom={8} className="h-full w-full" zoomControl={false}>
                     <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" />
-                    {data.map(inc => (
-                      <CircleMarker key={inc.id} center={[inc.latitude, inc.longitude]} radius={15} pathOptions={{ fillColor: inc.status === 'completed' ? '#1e293b' : '#ef4444', color: 'white', weight: 4, fillOpacity: 0.85 }}>
-                        <Popup className="premium-popup text-slate-800">
-                          <div className="w-64 p-2 font-sans">
-                             <h4 className="font-black text-nu-green uppercase italic text-xs border-b pb-2 mb-2">{inc.title}</h4>
-                             <div className="bg-slate-50 p-3 rounded-xl text-[10px] text-slate-600 leading-relaxed italic border mb-4">"{inc.kondisi_mutakhir || "Assessment aktif lapangan."}"</div>
-                             <button onClick={() => downloadSITREP(inc)} className="w-full bg-nu-gold text-green-950 font-black py-2 rounded-xl text-[8px] uppercase flex items-center justify-center gap-2 mb-3 shadow-md hover:bg-yellow-500 transition-all">
-                                <i className="fas fa-file-pdf"></i> Download SITREP
-                             </button>
-                             <div className="flex justify-between items-center"><span className="text-[8px] font-bold text-slate-400 uppercase">Stage</span><LifeCycleDots currentStatus={inc.status} /></div>
-                          </div>
-                        </Popup>
-                      </CircleMarker>
-                    ))}
+                    {data.map(inc => {
+                      // Validasi Koordinat agar tidak error LatLng
+                      const lat = parseFloat(inc.latitude);
+                      const lng = parseFloat(inc.longitude);
+                      if (isNaN(lat) || isNaN(lng)) return null;
+
+                      return (
+                        <CircleMarker key={inc.id} center={[lat, lng]} radius={15} pathOptions={{ fillColor: inc.status === 'completed' ? '#1e293b' : '#ef4444', color: 'white', weight: 4, fillOpacity: 0.85 }}>
+                          <Popup className="premium-popup text-slate-800">
+                            <div className="w-64 p-2 font-sans">
+                               <h4 className="font-black text-[#006432] uppercase italic text-xs border-b pb-2 mb-2">{inc.title}</h4>
+                               <div className="bg-slate-50 p-3 rounded-xl text-[10px] text-slate-600 leading-relaxed italic border mb-4">"{inc.kondisi_mutakhir || "Assessment aktif lapangan."}"</div>
+                               <button onClick={() => downloadSITREP(inc)} className="w-full bg-[#c5a059] text-green-950 font-black py-2 rounded-xl text-[8px] uppercase flex items-center justify-center gap-2 mb-3 shadow-md hover:bg-yellow-500 transition-all">
+                                  <i className="fas fa-file-pdf"></i> Download SITREP
+                               </button>
+                               <div className="flex justify-between items-center"><span className="text-[8px] font-bold text-slate-400 uppercase">Stage</span><LifeCycleDots currentStatus={inc.status} /></div>
+                            </div>
+                          </Popup>
+                        </CircleMarker>
+                      );
+                    })}
                   </MapContainer>
                </div>
                
-               <div className="lg:col-span-4 bg-[#006432] rounded-[40px] p-6 text-white h-[400px] md:h-[600px] flex flex-col shadow-2xl relative border-t-8 border-nu-gold overflow-hidden">
+               <div className="lg:col-span-4 bg-[#006432] rounded-[40px] p-6 text-white h-[400px] md:h-[600px] flex flex-col shadow-2xl relative border-t-8 border-[#c5a059] overflow-hidden">
                   <h3 className="font-black uppercase italic border-b border-white/20 pb-3 text-sm mb-4">Mission Progress Feed</h3>
                   <div className="flex-1 overflow-y-auto space-y-6 custom-scrollbar pr-2">
                     {data.map(inc => (
                       <div key={inc.id} className="relative border-l-2 border-white/20 pl-5 pb-2 group cursor-default">
-                         <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-nu-gold border-4 border-nu-green group-hover:scale-125 transition-transform shadow-lg"></div>
-                         <p className="text-[9px] font-bold text-white/40 uppercase leading-none tracking-tighter">{new Date(inc.updated_at).toLocaleTimeString()}</p>
+                         <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-[#c5a059] border-4 border-[#006432] group-hover:scale-125 transition-transform shadow-lg"></div>
+                         {/* Perbaikan Invalid Date */}
+                         <p className="text-[9px] font-bold text-white/40 uppercase leading-none tracking-tighter">
+                           {inc.updated_at ? new Date(inc.updated_at).toLocaleTimeString() : '--:--'}
+                         </p>
                          <h4 className="text-xs font-bold uppercase mt-1 leading-tight">{inc.title}</h4>
-                         <p className="text-[8px] text-nu-gold font-black uppercase mt-1.5">{inc.status}</p>
+                         <p className="text-[8px] text-[#c5a059] font-black uppercase mt-1.5">{inc.status}</p>
                       </div>
                     ))}
                   </div>
@@ -305,15 +303,15 @@ const PublicDashboard = () => {
                   <h3 className="font-black text-slate-800 uppercase italic border-b pb-3 text-sm mb-4 tracking-tighter">Berita Jateng Terkini</h3>
                   <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2">
                     {news.map(n => (
-                      <a key={n.id} href={n.url} target="_blank" rel="noreferrer" className="block p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-nu-gold transition-all group">
+                      <a key={n.id} href={n.url} target="_blank" rel="noreferrer" className="block p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-[#c5a059] transition-all group">
                         <span className="text-[8px] font-black px-2 py-1 bg-red-100 text-red-700 rounded-lg uppercase">{n.category}</span>
-                        <h4 className="text-xs font-bold mt-2 leading-tight text-slate-700 group-hover:text-nu-green">{n.title}</h4>
+                        <h4 className="text-xs font-bold mt-2 leading-tight text-slate-700 group-hover:text-[#006432]">{n.title}</h4>
                         <p className="text-[8px] text-slate-400 mt-1 uppercase font-black">{n.source}</p>
                       </a>
                     ))}
                   </div>
                </div>
-               <div className="bg-white p-8 rounded-[40px] shadow-xl h-[450px] flex flex-col border-t-8 border-nu-gold">
+               <div className="bg-white p-8 rounded-[40px] shadow-xl h-[450px] flex flex-col border-t-8 border-[#c5a059]">
                   <h3 className="font-black text-slate-800 uppercase italic mb-8 text-sm border-b pb-2 tracking-tighter">Gap Analysis Bantuan</h3>
                   <div className="flex-1 overflow-y-auto space-y-6 custom-scrollbar pr-2">
                      {data.filter(i => i.status !== 'completed').slice(0, 5).map(inc => (
@@ -323,14 +321,14 @@ const PublicDashboard = () => {
                         </div>
                      ))}
                   </div>
-                  <button className="w-full bg-nu-gold text-green-950 font-black py-4 rounded-2xl text-[10px] uppercase shadow-lg mt-4 hover:scale-105 transition-all">Sinergi Donasi Sekarang</button>
+                  <button className="w-full bg-[#c5a059] text-green-950 font-black py-4 rounded-2xl text-[10px] uppercase shadow-lg mt-4 hover:scale-105 transition-all">Sinergi Donasi Sekarang</button>
                </div>
             </div>
           </>
         ) : (
           <div className="space-y-8 animate-in fade-in duration-500 pb-20">
              <div className="text-center py-6">
-                <h2 className="text-3xl font-black text-nu-green uppercase italic tracking-tighter leading-none mb-2 underline decoration-nu-gold">NGO Institutional Hub</h2>
+                <h2 className="text-3xl font-black text-[#006432] uppercase italic tracking-tighter leading-none mb-2 underline decoration-[#c5a059]">NGO Institutional Hub</h2>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em]">Operational Readiness Jawa Tengah</p>
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -368,8 +366,8 @@ const KPIBox = ({ label, value, color }) => (
 );
 
 const CapabilityCard = ({ label, value, icon }) => (
-  <div className="bg-white p-8 rounded-[40px] shadow-xl border border-slate-50 flex flex-col items-center text-center group hover:border-nu-green transition-all">
-    <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center text-2xl text-nu-gold mb-6 group-hover:bg-nu-green group-hover:text-white transition-all shadow-inner">
+  <div className="bg-white p-8 rounded-[40px] shadow-xl border border-slate-50 flex flex-col items-center text-center group hover:border-[#006432] transition-all">
+    <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center text-2xl text-[#c5a059] mb-6 group-hover:bg-[#006432] group-hover:text-white transition-all shadow-inner">
        <i className={`fas fa-${icon}`}></i>
     </div>
     <h4 className="text-xl font-black text-slate-800 uppercase italic leading-tight">{value}</h4>
@@ -378,7 +376,7 @@ const CapabilityCard = ({ label, value, icon }) => (
 );
 
 const NavIcon = ({ icon, label, active, onClick }) => (
-  <button onClick={onClick} className={`flex flex-col items-center gap-1 flex-1 transition-all ${active ? 'text-nu-green' : 'text-slate-300'}`}>
+  <button onClick={onClick} className={`flex flex-col items-center gap-1 flex-1 transition-all ${active ? 'text-[#006432]' : 'text-slate-300'}`}>
     <i className={`fas fa-${icon} text-lg`}></i>
     <span className="text-[8px] font-black uppercase tracking-widest leading-none">{label}</span>
   </button>

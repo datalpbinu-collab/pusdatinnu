@@ -2,7 +2,9 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { io } from 'socket.io-client';
 import api from './services/api';
 import axios from 'axios';
-
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import 'leaflet/dist/leaflet.css';
 // --- NATIVE HP INTEGRATION (CAPACITOR OFFICIAL) ---
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -287,7 +289,7 @@ function App() {
       {/* 2. Tombol Login sekarang punya fungsi onClick */}
       <button 
         onClick={() => setShowLogin(true)} // <-- Saat diklik, showLogin jadi TRUE
-        className="fixed bottom-10 right-10 z-[2500] bg-[#006432] text-white p-5 rounded-full shadow-2xl animate-bounce border-4 border-white"
+        className="fixed bottom-10 right-10 z-[9999] bg-[#006432] text-white p-5 rounded-full shadow-2xl animate-bounce border-4 border-white"
       >
         <i className="fas fa-user-shield text-xl"></i>
       </button>
@@ -351,6 +353,24 @@ function App() {
             <NavBtn icon="desktop" label="Wall" active={activeTab === 'wallboard'} onClick={() => navigateTo('wallboard')} />
           </aside>
         )}
+const PublicDashboard = ({ incidents, onOpenLogin }) => {
+  const [data, setData] = useState(incidents || []);
+
+  return (
+    <div className="flex flex-col h-screen bg-[#f8fafc] text-slate-900 overflow-hidden font-sans">
+      {/* HEADER */}
+      <header className="h-14 bg-white border-b shrink-0 flex items-center px-6 justify-between z-[2000] shadow-sm">
+        <div className="flex items-center gap-3">
+          <img src="https://pwnu-jateng.org/uploads/infoumum/20250825111304-2025-08-25infoumum111252.png" className="h-8" alt="logo" />
+          <h1 className="text-sm font-black text-[#006432] uppercase tracking-tighter italic">NU Peduli Monitoring</h1>
+        </div>
+        
+        {/* Ikon Profil (Klik untuk Login) */}
+        <i 
+          className="far fa-user-circle text-xl text-slate-300 cursor-pointer hover:text-[#006432] transition-all" 
+          onClick={onOpenLogin}
+        ></i>
+      </header>
 
         {/* WORKSPACE AREA (SCROLLABLE) */}
         <main className="flex-1 relative bg-white overflow-hidden shadow-inner">
