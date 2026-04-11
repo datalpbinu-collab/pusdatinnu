@@ -70,29 +70,35 @@ function App() {
 
   // FIX ERROR #310: Pindahkan filteredData ke sini (Sebelum return apa pun)
   const filteredData = useMemo(() => {
-    if (!Array.isArray(incidents)) return []; 
+     if (!incidents || !Array.isArray(incidents)) return []; 
     // Jika belum login, tampilkan semua data untuk Dashboard Publik
     if (!isLoggedIn) return incidents; 
     // Jika sudah login, filter berdasarkan Role (PCNU/PWNU) sesuai PRD
     return incidents.filter((inc) => 
-      userData?.role === 'PWNU' || userData?.role === 'SUPER_ADMIN' || inc.region === userData?.region
-    );
-  }, [incidents, userData, isLoggedIn]);
+      userData?.role === 'PWNU' || userData?.role === 'SUPER_ADMIN' || inc?.region === userData?.region
+  );
+}, [incidents, userData, isLoggedIn]);
 
   const fetchData = useCallback(async () => {
-    try {
-      const [resInc, resInv] = await Promise.all([
-        api.get('incidents'), 
-        api.get('inventory')
-      ]);
+  try {
+    const [resInc, resInv] = await Promise.all([
+      api.get('incidents'), 
+      api.get('inventory')
+    ]);
+      const dataInc = Array.isArray(resInc.data) ? resInc.data : [];
+    const dataInv = Array.isArray(resInv.data) ? resInv.data : [];
       setIncidents(Array.isArray(resInc.data) ? resInc.data : []);
       setInventory(Array.isArray(resInv.data) ? resInv.data : []);
-      await storage.set('cache_incidents', resInc.data || []);
-    } catch (err) {
-      const cInc = await storage.get('cache_incidents');
-      setIncidents(cInc || []);
-    }
-  }, [storage]);
+      await storage.set('cache_incidents', dataInc);
+    await storage.set('cache_inventory', dataInv);
+  } catch (err) {
+    console.error("Fetch Error:", err);
+    const cInc = await storage.get('cache_incidents');
+    const cInv = await storage.get('cache_inventory');
+    setIncidents(Array.isArray(cInc) ? cInc : []);
+    setInventory(Array.isArray(cInv) ? cInv : []);
+  }
+}, [storage]);
 
   const handleDataSubmit = async (endpoint, data) => {
     const cleanEndpoint = endpoint.replace('/api/', '');
@@ -194,23 +200,41 @@ function App() {
             <NavBtn icon="desktop" label="Wall" active={activeTab === 'wallboard'} onClick={() => navigateTo('wallboard')} />
           </aside>
         )}
-
+{/* WORKSPACE AREA */}
         <main className="flex-1 relative bg-white overflow-hidden shadow-inner">
           <div className="h-full w-full overflow-y-auto custom-scrollbar">
             <div className="pb-24 pt-4 px-4 md:px-8">
-              {activeTab === 'dashboard' && <DashboardHome incidents={filteredData} onNavigate={navigateTo} isOnline={isOnline} />}
-              {activeTab === 'command' && <MapHUD incidents={filteredData} onRefresh={fetchData} onAction={setActiveTab} onSelect={setSelectedIncident} />}
-              {activeTab === 'manager' && <MissionManager incidents={filteredData} onRefresh={fetchData} onAction={setActiveTab} onSelect={setSelectedIncident} />}
-              {activeTab === 'assets' && <InventoryView inventory={inventory} onRefresh={fetchData} />}
-              {activeTab === 'logistics' && <LogisticsHub user={userData} />}
-              {activeTab === 'wallboard' && <Wallboard incidents={filteredData} />}
-            </div>
+              {activeTab === 'dashboard' && <DashboardHome incidents={filteredData || []} onNavigate={navigateTo} isOnline={isOnline} />}
+{activeTab === 'command' && <MapHUD incidents={filteredData || []} onRefresh={fetchData} onAction={setActiveTab} onSelect={setSelectedIncident} />}
+{activeTab === 'manager' && <MissionManager incidents={filteredData || []} onRefresh={fetchData} onAction={setActiveTab} onSelect={setSelectedIncident} />}
+{activeTab === 'assets' && <InventoryView inventory={inventory || []} onRefresh={fetchData} />}
+           {activeTab === 'logistics' && (
+        <LogisticsHub user={userData} inventory={inventory || []} />
+      )}
+              {activeTab === 'wallboard' && (
+        <Wallboard incidents={filteredData || []} />
+      )}
+    </div>
 
-            {activeTab === 'assess' && selectedIncident && <OverlayWrapper title="Asesmen" onBack={goBack}><Assessment incident={selectedIncident} onBack={goBack} onSyncSubmit={handleDataSubmit} /></OverlayWrapper>}
-            {activeTab === 'instruksi' && selectedIncident && <OverlayWrapper title="Instruksi" onBack={goBack}><InstructionView incident={selectedIncident} onComplete={goBack} onSyncSubmit={handleDataSubmit} /></OverlayWrapper>}
-            {activeTab === 'action' && selectedIncident && <OverlayWrapper title="Monitoring" onBack={goBack}><ActionView incident={selectedIncident} onComplete={goBack} onSyncSubmit={handleDataSubmit} /></OverlayWrapper>}
-          </div>
-        </main>
+           {activeTab === 'assess' && selectedIncident && (
+      <OverlayWrapper title="Asesmen Bencana" onBack={goBack}>
+        <Assessment incident={selectedIncident} onBack={goBack} onSyncSubmit={handleDataSubmit} />
+      </OverlayWrapper>
+    )}
+
+    {activeTab === 'instruksi' && selectedIncident && (
+      <OverlayWrapper title="Instruksi Operasi" onBack={goBack}>
+        <InstructionView incident={selectedIncident} onComplete={goBack} onSyncSubmit={handleDataSubmit} />
+      </OverlayWrapper>
+    )}
+
+    {activeTab === 'action' && selectedIncident && (
+      <OverlayWrapper title="Monitoring Taktis" onBack={goBack}>
+        <ActionView incident={selectedIncident} onComplete={goBack} onSyncSubmit={handleDataSubmit} />
+      </OverlayWrapper>
+    )}
+  </div>
+</main>
       </div>
       {!isMobile && <LogFooter />}
     </div>

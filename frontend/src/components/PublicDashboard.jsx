@@ -185,19 +185,22 @@ const PublicDashboard = ({ incidents, onOpenLogin }) => {
     }
   }, [incidents]);
 
-  useEffect(() => {
-    const fetchAllData = async () => {
-      try {
-        const [resInc, resInv, resNews] = await Promise.all([
-          api.get('incidents/public'),
-          api.get('inventory'),
-          api.get('news').catch(() => ({ data: [] }))
-        ]);
-        setData(resInc.data);
-        setInventory(resInv.data);
-        setNews(resNews.data);
-      } catch (e) { console.error("Strategic Hub Error"); }
-    };
+ useEffect(() => {
+  const fetchAllData = async () => {
+    try {
+      const [resInc, resInv, resNews] = await Promise.all([
+        api.get('incidents/public').catch(() => ({ data: [] })),
+        api.get('inventory').catch(() => ({ data: [] })),
+        api.get('news').catch(() => ({ data: [] }))
+      ]);
+         setData(Array.isArray(resInc.data) ? resInc.data : []);
+         setInventory(Array.isArray(resInv.data) ? resInv.data : []);
+      setNews(Array.isArray(resNews.data) ? resNews.data : []);
+    } catch (e) { 
+      console.error("Strategic Hub Error", e);
+      setData([]); // Reset ke array kosong jika error total
+    }
+  };
     fetchAllData();
     const interval = setInterval(fetchAllData, 300000); 
     return () => clearInterval(interval);
@@ -222,6 +225,7 @@ const PublicDashboard = ({ incidents, onOpenLogin }) => {
   };
 
   const stats = useMemo(() => {
+    if (!data || !Array.isArray(data)) return { terdampak: 0 };
     return data.reduce((acc, curr) => {
       acc.terdampak += (parseInt(curr.dampak_manusia?.terdampak) || 0);
       return acc;
