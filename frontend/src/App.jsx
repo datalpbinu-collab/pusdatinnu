@@ -27,7 +27,8 @@ const socket = io(BASE_URL, {
   reconnection: true, 
   reconnectionAttempts: Infinity,
   transports: ['websocket'],
-  upgrade: false 
+  upgrade: false, 
+  forceNew: true
 });
 
 function App() {
