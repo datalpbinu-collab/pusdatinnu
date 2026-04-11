@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import api from './services/api';
 import axios from 'axios';
 
-// --- NATIVE HP INTEGRATION (CAPACITOR OFFICIAL) ---
+// --- NATIVE HP INTEGRATION ---
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -13,8 +13,16 @@ import { Geolocation } from '@capacitor/geolocation';
 import { Camera } from '@capacitor/camera';
 import { Preferences } from '@capacitor/preferences';
 
-// --- HUB SELURUH KOMPONEN SISTEM ---
-import { MapHUD, MissionManager, InventoryView, Wallboard, LogFooter, LogisticsHub, Assessment, InstructionView, ActionView } from './components/Placeholders';
+// --- HUB KOMPONEN ASLI (SESUAI FOLDER ANDA) ---
+import MapHUD from './components/CommandCenter'; 
+import MissionManager from './components/CompleteView'; 
+import InventoryView from './components/InventoryView';
+import Wallboard from './components/Wallboard';
+import LogFooter from './components/LogFooter';
+import LogisticsHub from './components/LogisticsHub';
+import Assessment from './components/Assessment';
+import InstructionView from './components/InstructionView';
+import ActionView from './components/ActionView';
 import PublicReport from './components/PublicReport';
 import VolunteerRegister from './components/VolunteerRegister';
 import RelawanTactical from './components/RelawanTactical'; 
@@ -26,41 +34,31 @@ const BASE_URL = 'https://nupeduli-pusdatin-nu-backend.hf.space';
 const socket = io(BASE_URL, { 
   reconnection: true, 
   reconnectionAttempts: Infinity,
-  transports: ['websocket'],
+  transports: ['websocket'], 
   upgrade: false, 
   forceNew: true
 });
 
 function App() {
-  // --- STATE AUTH & SESSION ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userData, setUserData] = useState(null);
   const [showLogin, setShowLogin] = useState(false);
-  
-  // --- STATE NAVIGATION ---
   const [activeTab, setActiveTab] = useState('dashboard');
   const [navStack, setNavStack] = useState(['dashboard']);
   const [selectedIncident, setSelectedIncident] = useState(null);
-  
-  // --- STATE DATA & SYNC ENGINE ---
   const [incidents, setIncidents] = useState([]);
   const [inventory, setInventory] = useState([]);
-  const [logs, setLogs] = useState([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncQueue, setSyncQueue] = useState([]);
-  
-  // --- STATE ENVIRONMENT ---
   const [weather, setWeather] = useState(null);
   const [currentCoords, setCurrentCoords] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // --- REF UNTUK NAVIGASI ---
   const stateRef = useRef({ activeTab, navStack, selectedIncident, isLoggedIn, syncQueue });
   useEffect(() => { 
     stateRef.current = { activeTab, navStack, selectedIncident, isLoggedIn, syncQueue }; 
   }, [activeTab, navStack, selectedIncident, isLoggedIn, syncQueue]);
 
-  // --- 1. STORAGE UTILITY ---
   const storage = useMemo(() => ({
     set: async (key, val) => await Preferences.set({ key, value: JSON.stringify(val) }),
     get: async (key) => {
@@ -71,164 +69,52 @@ function App() {
     clear: async () => await Preferences.clear()
   }), []);
 
-  // --- 2. ENGINE: DATA SYNCHRONIZER ---
   const fetchData = useCallback(async () => {
     try {
       const [resInc, resInv] = await Promise.all([
         api.get('incidents'), 
         api.get('inventory')
       ]);
-      setIncidents(resInc.data);
-      setInventory(resInv.data);
-      await storage.set('cache_incidents', resInc.data);
-      await storage.set('cache_inventory', resInv.data);
+      setIncidents(resInc.data || []);
+      setInventory(resInv.data || []);
     } catch (err) {
       const cInc = await storage.get('cache_incidents');
-      const cInv = await storage.get('cache_inventory');
       if (cInc) setIncidents(cInc);
-      if (cInv) setInventory(cInv);
     }
   }, [storage]);
 
-  const processSyncQueue = useCallback(async () => {
-    const queue = await storage.get('sync_queue') || [];
-    if (queue.length === 0 || !navigator.onLine) return;
-
-    const remainingQueue = [];
-    for (const item of queue) {
-      try {
-        await api.post(item.endpoint.replace('/api/', ''), item.data);
-      } catch (e) {
-        remainingQueue.push(item);
-      }
-    }
-    setSyncQueue(remainingQueue);
-    await storage.set('sync_queue', remainingQueue);
-    if (remainingQueue.length === 0) fetchData();
-  }, [fetchData, storage]);
-
   const handleDataSubmit = async (endpoint, data) => {
-    if (!isOnline) {
-      const updatedQueue = [...stateRef.current.syncQueue, { endpoint, data, ts: Date.now() }];
-      setSyncQueue(updatedQueue);
-      await storage.set('sync_queue', updatedQueue);
-      Haptics.impact({ style: ImpactStyle.Heavy });
-      alert("⚠️ MODE OFFLINE: Data disimpan di HP. Akan otomatis terupload saat sinyal kembali.");
+    const cleanEndpoint = endpoint.replace('/api/', '');
+    try {
+      await api.post(cleanEndpoint, data);
+      fetchData();
       goBack();
-    } else {
-      try {
-        await api.post(endpoint, data);
-        fetchData();
-        goBack();
-      } catch (e) { alert("Gagal mengirim data."); }
-    }
+    } catch (e) { alert("Gagal mengirim data."); }
   };
 
-  // --- 3. ENGINE: NAVIGASI PINTAR ---
   const navigateTo = (tab) => {
-    if (tab === activeTab) return;
-    setNavStack(prev => [...prev, tab]);
     setActiveTab(tab);
-    setSelectedIncident(null);
     if (isMobile) Haptics.impact({ style: ImpactStyle.Light });
   };
 
   const goBack = useCallback(async () => {
-    const { activeTab, navStack, selectedIncident, isLoggedIn } = stateRef.current;
-    if (!isLoggedIn) {
-      setShowLogin(false);
-      return;
-    }
-
-    if (selectedIncident) {
-      setSelectedIncident(null);
-      if (isMobile) Haptics.impact({ style: ImpactStyle.Light });
-      return;
-    }
-
-    if (activeTab !== 'dashboard') {
-      setActiveTab('dashboard');
-      setNavStack(['dashboard']);
-      if (isMobile) Haptics.impact({ style: ImpactStyle.Medium });
-    } else {
-      const confirmExit = window.confirm("Keluar dari aplikasi PWNU Jateng?");
-      if (confirmExit) CapApp.exitApp();
-    }
+    const { selectedIncident, activeTab } = stateRef.current;
+    if (selectedIncident) { setSelectedIncident(null); return; }
+    if (activeTab !== 'dashboard') { setActiveTab('dashboard'); }
+    else { CapApp.exitApp(); }
   }, [isMobile]);
 
-  // --- 4. ENGINE: NATIVE SENSORS & REAL-TIME ---
-  const updateWeather = async (lat, lon) => {
-    try {
-      const res = await axios.get(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=311da565f6bbe61c1896ea46b2f8c353&units=metric`);
-      setWeather(res.data);
-    } catch (e) { console.log("Weather error"); }
-  };
-
-  const initNativeFeatures = async () => {
-    try {
-      await Geolocation.requestPermissions();
-      await Camera.requestPermissions();
-      await LocalNotifications.requestPermissions();
-      
-      await StatusBar.setStyle({ style: Style.Dark });
-      await StatusBar.setBackgroundColor({ color: '#006432' });
-
-      Geolocation.watchPosition({ enableHighAccuracy: true, timeout: 10000 }, (pos) => {
-        if (pos) {
-          const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          setCurrentCoords(coords);
-          updateWeather(coords.lat, coords.lng);
-        }
-      });
-
-      Network.addListener('networkStatusChange', status => {
-        setIsOnline(status.connected);
-        if (status.connected) processSyncQueue();
-      });
-
-      CapApp.addListener('backButton', goBack);
-    } catch (e) { console.log("Native API not available in Browser"); }
-  };
-
-  // --- 5. LIFECYCLE & BOOTSTRAP ---
   useEffect(() => {
     const bootstrap = async () => {
       const uData = await storage.get('userData');
-      const logged = await storage.get('isLoggedIn');
-      if (logged && uData) {
-        setIsLoggedIn(true);
-        setUserData(uData);
-      }
-      initNativeFeatures();
+      if (uData) { setIsLoggedIn(true); setUserData(uData); }
       fetchData();
     };
     bootstrap();
+    socket.on('emergency_broadcast', () => fetchData());
+    return () => socket.off('emergency_broadcast');
+  }, [fetchData]);
 
-    // Handle initial /login path
-    if (window.location.pathname === '/login') {
-      setShowLogin(true);
-    }
-
-    socket.on('emergency_broadcast', async (data) => {
-      await LocalNotifications.schedule({
-        notifications: [{
-          id: data.incident_id || Date.now(),
-          title: `🚨 DARURAT: ${data.title}`,
-          body: data.summary,
-          channelId: 'critical_alerts',
-          sound: 'emergency_siren.wav'
-        }]
-      });
-      Haptics.impact({ style: ImpactStyle.Heavy });
-    });
-
-    return () => {
-      socket.off('emergency_broadcast');
-      CapApp.removeAllListeners();
-    };
-  }, [fetchData, processSyncQueue, goBack, storage]);
-
-  // --- 6. AUTH ENGINE ---
   const handleLoginSuccess = (user) => {
     setUserData(user);
     setIsLoggedIn(true);
@@ -237,12 +123,10 @@ function App() {
   };
 
   const handleLogout = async () => {
-    await storage.remove('userData');
-    await storage.remove('isLoggedIn');
+    await storage.clear();
     window.location.reload();
   };
 
-  // --- 7. ROUTING LOGIC ---
   const path = window.location.pathname;
   if (path === '/lapor') return <PublicReport />;
   if (path === '/gabung') return <VolunteerRegister />;
@@ -251,22 +135,8 @@ function App() {
     return (
       <div className="h-screen w-screen relative bg-white overflow-hidden">
         <PublicDashboard incidents={incidents} onOpenLogin={() => setShowLogin(true)} />
-        
-        {/* FIXED LOGIN BUTTON */}
-        <button 
-          onClick={() => setShowLogin(true)} 
-          className="fixed bottom-10 right-10 z-[9999] bg-[#006432] text-white p-5 rounded-full shadow-2xl animate-bounce border-4 border-white active:scale-90 transition-all"
-        >
-          <i className="fas fa-user-shield text-xl"></i>
-        </button>
-
-        {showLogin && (
-          <Login 
-            onLoginSuccess={handleLoginSuccess} 
-            onGoToRegister={() => window.location.pathname = '/gabung'} 
-            onClose={() => setShowLogin(false)}
-          />
-        )}
+        <button onClick={() => setShowLogin(true)} className="fixed bottom-10 right-10 z-[9999] bg-[#006432] text-white p-5 rounded-full shadow-2xl animate-bounce border-4 border-white"><i className="fas fa-user-shield text-xl"></i></button>
+        {showLogin && <Login onLoginSuccess={handleLoginSuccess} onGoToRegister={() => window.location.pathname = '/gabung'} onClose={() => setShowLogin(false)} />}
       </div>
     );
   }
@@ -275,39 +145,21 @@ function App() {
     return <RelawanTactical user={userData} coords={currentCoords} onOfflineSubmit={handleDataSubmit} onLogout={handleLogout} />;
   }
 
-  const filteredData = incidents.filter((inc) => 
-    userData.role === 'PWNU' || userData.role === 'SUPER_ADMIN' || inc.region === userData.region
-  );
+  const filteredData = incidents.filter((inc) => userData.role === 'PWNU' || inc.region === userData.region);
 
-  // --- 8. RENDER UTAMA ---
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#f8fafc] text-slate-800 overflow-hidden font-sans relative safe-area-inset">
-      
-      {/* HEADER */}
+    <div className="h-screen w-screen flex flex-col bg-[#f8fafc] text-slate-800 overflow-hidden relative safe-area-inset">
       <header className="h-14 md:h-16 bg-[#006432] border-b-2 border-[#c5a059] flex items-center px-4 md:px-8 justify-between shrink-0 shadow-2xl z-[5000]">
         <div className="flex items-center gap-3">
           <img src="https://pwnu-jateng.org/uploads/infoumum/20250825111304-2025-08-25infoumum111252.png" className="h-8 md:h-10" alt="logo" />
-          <div className="flex flex-col">
-            <h1 className="font-black text-[10px] md:text-sm text-white uppercase italic tracking-tighter leading-none">PWNU JATENG COMMAND CENTER</h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-400' : 'bg-red-500 animate-pulse'}`}></span>
-              <span className="text-[7px] text-white/70 font-bold uppercase tracking-widest leading-none">
-                {weather ? `${weather.main.temp}°C - ${weather.weather[0].main}` : 'Syncing Sensors...'}
-              </span>
-            </div>
-          </div>
+          <h1 className="font-black text-[10px] md:text-sm text-white uppercase italic tracking-tighter">PWNU JATENG COMMAND CENTER</h1>
         </div>
-        <div className="flex items-center gap-3">
-          {syncQueue.length > 0 && <div className="bg-orange-500 text-white text-[8px] px-2 py-1 rounded-full animate-bounce font-black">{syncQueue.length} SYNC</div>}
-          <button onClick={handleLogout} className="text-white/40 hover:text-white p-2 transition-all"><i className="fas fa-power-off"></i></button>
-        </div>
+        <button onClick={handleLogout} className="text-white/40 p-2"><i className="fas fa-power-off"></i></button>
       </header>
 
       <div className="flex flex-1 overflow-hidden relative flex-col md:flex-row">
-        
-        {/* SIDEBAR */}
         {!isMobile && (
-          <aside className="w-[85px] bg-white border-r border-slate-200 flex flex-col items-center py-8 gap-10 shrink-0 z-40 shadow-sm">
+          <aside className="w-[85px] bg-white border-r border-slate-200 flex flex-col items-center py-8 gap-10 shrink-0 z-40">
             <NavBtn icon="home" label="Home" active={activeTab === 'dashboard'} onClick={() => navigateTo('dashboard')} />
             <NavBtn icon="crosshairs" label="HUD" active={activeTab === 'command'} onClick={() => navigateTo('command')} />
             <NavBtn icon="table" label="Missions" active={activeTab === 'manager'} onClick={() => navigateTo('manager')} />
@@ -317,10 +169,8 @@ function App() {
           </aside>
         )}
 
-        {/* WORKSPACE AREA */}
         <main className="flex-1 relative bg-white overflow-hidden shadow-inner">
-          <div className="h-full w-full overflow-y-auto custom-scrollbar scrolling-touch">
-            
+          <div className="h-full w-full overflow-y-auto custom-scrollbar">
             <div className="pb-24 pt-4 px-4 md:px-8">
               {activeTab === 'dashboard' && <DashboardHome incidents={filteredData} onNavigate={navigateTo} isOnline={isOnline} />}
               {activeTab === 'command' && <MapHUD incidents={filteredData} onRefresh={fetchData} onAction={setActiveTab} onSelect={setSelectedIncident} />}
@@ -330,45 +180,17 @@ function App() {
               {activeTab === 'wallboard' && <Wallboard incidents={filteredData} />}
             </div>
 
-            {/* OVERLAYS */}
-            {activeTab === 'assess' && selectedIncident && (
-              <OverlayWrapper title="Asesmen Bencana" onBack={goBack}>
-                <Assessment incident={selectedIncident} onBack={goBack} onSyncSubmit={handleDataSubmit} />
-              </OverlayWrapper>
-            )}
-
-            {activeTab === 'instruksi' && selectedIncident && (
-              <OverlayWrapper title="Instruksi Operasi" onBack={goBack}>
-                <InstructionView incident={selectedIncident} onComplete={goBack} onSyncSubmit={handleDataSubmit} />
-              </OverlayWrapper>
-            )}
-
-            {activeTab === 'action' && selectedIncident && (
-              <OverlayWrapper title="Monitoring Taktis" onBack={goBack}>
-                <ActionView incident={selectedIncident} onComplete={goBack} onSyncSubmit={handleDataSubmit} />
-              </OverlayWrapper>
-            )}
+            {activeTab === 'assess' && selectedIncident && <OverlayWrapper title="Asesmen" onBack={goBack}><Assessment incident={selectedIncident} onBack={goBack} onSyncSubmit={handleDataSubmit} /></OverlayWrapper>}
+            {activeTab === 'instruksi' && selectedIncident && <OverlayWrapper title="Instruksi" onBack={goBack}><InstructionView incident={selectedIncident} onComplete={goBack} onSyncSubmit={handleDataSubmit} /></OverlayWrapper>}
+            {activeTab === 'action' && selectedIncident && <OverlayWrapper title="Monitoring" onBack={goBack}><ActionView incident={selectedIncident} onComplete={goBack} onSyncSubmit={handleDataSubmit} /></OverlayWrapper>}
           </div>
         </main>
-
-        {/* BOTTOM NAVIGATION */}
-        {isMobile && (
-          <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-100 flex justify-around items-center px-2 z-[5000] pb-safe shadow-[0_-5px_25px_rgba(0,0,0,0.1)]">
-            <MobileNavBtn icon="home" label="Home" active={activeTab === 'dashboard'} onClick={() => navigateTo('dashboard')} />
-            <MobileNavBtn icon="crosshairs" label="HUD" active={activeTab === 'command'} onClick={() => navigateTo('command')} />
-            <MobileNavBtn icon="table" label="Misi" active={activeTab === 'manager'} onClick={() => navigateTo('manager')} />
-            <MobileNavBtn icon="boxes" label="Aset" active={activeTab === 'assets'} onClick={() => navigateTo('assets')} />
-            <MobileNavBtn icon="truck-loading" label="Logistik" active={activeTab === 'logistics'} onClick={() => navigateTo('logistics')} />
-          </nav>
-        )}
       </div>
-
       {!isMobile && <LogFooter />}
     </div>
   );
 }
-
-// --- UI SUB-COMPONENTS ---
+// --- UI SUB-COMPONENTS (TETAP SAMA) ---
 
 function OverlayWrapper({ children, title, onBack }) {
   return (

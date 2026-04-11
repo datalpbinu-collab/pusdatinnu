@@ -290,23 +290,46 @@ const PublicDashboard = ({ incidents, onOpenLogin }) => {
                   <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
                   <h3 className="font-black uppercase italic border-b border-white/20 pb-3 text-sm mb-6 flex items-center gap-3">
                     <span className="w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
-                    Mission Progress Feed
-                  </h3>
-                  <div className="flex-1 overflow-y-auto space-y-8 custom-scrollbar pr-2">
-                    {data.map((inc) => (
-                      <div key={inc.id || inc._id} className="relative pl-6 border-l border-white/10 pb-2 group cursor-default">
-                         <div className="absolute -left-[4.5px] top-0 w-2 h-2 rounded-full bg-[#c5a059] shadow-[0_0_10px_#c5a059] group-hover:scale-125 transition-transform"></div>
-                         <p className="text-[9px] font-bold text-white/30 uppercase leading-none tracking-tighter">
-                           {inc.updated_at ? new Date(inc.updated_at).toLocaleTimeString() : '--:--'}
-                         </p>
-                         <h4 className="text-sm font-bold mt-1 group-hover:text-[#c5a059] transition-colors leading-tight">{inc.title}</h4>
-                         <div className="mt-2 flex items-center gap-2">
-                           <span className="text-[8px] font-black bg-white/10 px-2 py-0.5 rounded-md uppercase">{inc.status}</span>
-                         </div>
-                      </div>
-                    ))}
-                  </div>
-               </div>
+                   </h3>
+{/* --- MISSION PROGRESS FEED --- */}
+<div className="flex-1 overflow-y-auto space-y-8 custom-scrollbar pr-2">
+  {data.map((inc) => {
+    // Menentukan tanggal yang akan dipakai (createdAt sebagai utama, updated_at sebagai cadangan)
+    const eventDate = inc.createdAt || inc.updated_at;
+    
+    return (
+      <div key={inc.id || inc._id} className="relative pl-6 border-l border-white/10 pb-2 group cursor-default">
+         <div className="absolute -left-[4.5px] top-0 w-2 h-2 rounded-full bg-[#c5a059] shadow-[0_0_10px_#c5a059] group-hover:scale-125 transition-transform"></div>
+         
+         {/* TANGGAL DAN WAKTU (SUDAH DIPERBAIKI) */}
+         <p className="text-[9px] font-bold text-white/50 uppercase leading-none tracking-tighter">
+           {eventDate 
+             ? new Date(eventDate).toLocaleString('id-ID', { 
+                 day: '2-digit', 
+                 month: 'short', 
+                 hour: '2-digit', 
+                 minute: '2-digit' 
+               }).replace('.', ':') 
+             : 'JAM PENDING'}
+         </p>
+
+         <h4 className="text-sm font-bold mt-1 group-hover:text-[#c5a059] transition-colors leading-tight">
+           {inc.title}
+         </h4>
+         
+         <div className="mt-2 flex items-center gap-2">
+           <span className="text-[8px] font-black bg-white/10 px-2 py-0.5 rounded-md uppercase">
+             {inc.status}
+           </span>
+           <span className="text-[7px] font-bold text-white/30 uppercase italic">
+             {inc.region}
+           </span>
+         </div>
+      </div>
+    );
+  })}
+</div>                 
+            </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-10">
